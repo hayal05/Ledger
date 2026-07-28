@@ -1,22 +1,26 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
-from sqlalchemy import String, DateTime
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.core.database import Base
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 
-class User(Base):
-    __tablename__ = "users"
+class UserCreate(BaseModel):
+    """Payload for registering a new user."""
+    full_name: str = Field(min_length=2, max_length=255)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
 
-    transactions: Mapped[list["Transaction"]] = relationship(
-        "Transaction", back_populates="owner", cascade="all, delete-orphan"
-    )
+class UserLogin(BaseModel):
+    """Payload for logging in."""
+    email: EmailStr
+    password: str
+
+
+class UserOut(BaseModel):
+    """Public-facing representation of a user (never includes password_hash)."""
+    id: int
+    full_name: str
+    email: EmailStr
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

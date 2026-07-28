@@ -1,33 +1,33 @@
-import enum
-from datetime import datetime, date, timezone
+from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import String, DateTime, Date, Numeric, ForeignKey, Enum as SAEnum
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pydantic import BaseModel, Field, ConfigDict
 
-from app.core.database import Base
-
-
-class TransactionType(str, enum.Enum):
-    INCOME = "income"
-    EXPENSE = "expense"
+from app.models.transaction import TransactionType
 
 
-class Transaction(Base):
-    __tablename__ = "transactions"
+class TransactionBase(BaseModel):
+    date: date
+    description: str = Field(min_length=1, max_length=500)
+    type: TransactionType
+    amount: Decimal = Field(gt=0, description="Must be a positive number; type indicates direction.")
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    date: Mapped[date] = mapped_column(Date, nullable=False)
-    description: Mapped[str] = mapped_column(String(500), nullable=False)
-    type: Mapped[TransactionType] = mapped_column(
-        SAEnum(TransactionType, name="transaction_type"), nullable=False
-    )
-    # Numeric(12, 2) avoids floating point rounding errors for money
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
 
-    owner: Mapped["User"] = relationship("User", back_populates="transactions")
+class TransactionCreate(TransactionBase):
+    pass
+
+
+class TransactionUpdate(BaseModel):
+    """All fields optional to support partial updates (PATCH-like semantics via PUT)."""
+    date: date | None = None
+    description: str | None = Field(default=None, min_length=1, max_length=500)
+    type: TransactionType | None = None
+    amount: Decimal | None = Field(default=None, gt=0)
+
+
+class TransactionOut(TransactionBase):
+    id: int
+    user_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
